@@ -20,6 +20,22 @@
                 <p class="label">Hosted in</p>
                 <p class="value"><%= listing.location %>, <%= listing.country %></p>
             </div>
+            <br>
+            <div>
+                <p class="label">Rating</p>
+                <p class="value">
+                    <% if (listing.reviews.length === 0) { %>
+                        No reviews yet
+                    <% } else { 
+                        let totalRating = 0;
+                        listing.reviews.forEach(function(review) {
+                            totalRating += review.rating;
+                        });
+                        let averageRating = (totalRating / listing.reviews.length).toFixed(1);
+                    %>
+                        <%= averageRating %> / 5 (<%= listing.reviews.length %> reviews)
+                    <% } %>
+            </div>
         </div>
         <div class="form-actions">
             <a href="/listings/<%=listing._id%>/edit" class="btn btn-dark btn-lg">Edit listing</a>
@@ -27,5 +43,61 @@
                 <button class="btn btn-outline-dark btn-lg">Delete listing</button>
             </form>
         </div>
+    </div>
+</section>
+<section class="review-section">
+    <div class="review-form-panel">
+        <h3 class="review-section-title">Leave a Review</h3>
+        <form action="/listings/<%= listing._id %>/reviews" method="POST" novalidate class="review-form">
+            <div class="form-group">
+                <label for="rating" class="form-label">Rating</label>
+                <select class="form-select" id="rating" name="review[rating]" required>
+                    <option value="" disabled selected>Select rating</option>
+                    <option value="1">1 - Poor</option>
+                    <option value="2">2 - Fair</option>
+                    <option value="3">3 - Good</option>
+                    <option value="4">4 - Very Good</option>
+                    <option value="5">5 - Excellent</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="comment" class="form-label">Comment</label>
+                <textarea class="form-control" id="comment" name="review[comment]" rows="4" required placeholder="Share your experience..."></textarea>
+                <div class="invalid-feedback">
+                    Please enter your comment.
+                </div>
+            </div>
+            <button type="submit" class="btn btn-dark btn-lg">Submit Review</button>
+        </form>
+    </div>
+
+    <div class="reviews-list">
+        <h3 class="review-section-title">Reviews</h3>
+        <% if (listing.reviews.length === 0) { %>
+            <div class="no-reviews">
+                <p class="no-reviews-text">No reviews yet. Be the first to leave a review!</p>
+            </div>
+        <% } else { %>
+            <div class="reviews-container">
+                <% listing.reviews.forEach(function(review) { %>
+                    <div class="review-card">
+                        <div class="review-header">
+                            <div class="review-rating">
+                                <% for(let i = 1; i <= 5; i++) { %>
+                                    <span class="star <%= i <= review.rating ? 'star-filled' : 'star-empty' %>">★</span>
+                                <% } %>
+                                <span class="rating-value"><%= review.rating %> / 5</span>
+                            </div>
+                        </div>
+                        <div class="review-body">
+                            <p class="review-comment"><%= review.comment %></p>
+                        </div>
+                        <form method="POST" action="/listings/<%=listing._id%>/reviews/<%=review._id%>?_method=DELETE" class="delete-review-form mt-2">
+                            <button class="btn btn-outline-dark btn-sm">Delete Review</button>
+                        </form>
+                    </div>
+                <% }); %>
+            </div>
+        <% }; %>
     </div>
 </section>
