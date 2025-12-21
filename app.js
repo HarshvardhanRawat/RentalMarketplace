@@ -1,17 +1,38 @@
-//Require necessary modules
+//Load environment variables from .env file
 require('dotenv').config();
+
+//Import required modules
 const expres = require('express');
 const app = expres();
 const mongoose = require('mongoose');
-const Listing = require('./models/listing.js');
-const path = require('path');
-const ejs = require('ejs');
-const wrapAsync = require('./utils/wrapAsync.js');
-const ExpressError = require('./utils/ExpressError.js');
-const {listingSchema , reviewSchema} = require('./schema.js');
 const ejsMate = require('ejs-mate');
 const methodOverride = require('method-override');
-const Review = require('./models/review.js');
+const flash = require('connect-flash');
+
+//Passport configuration
+const passport = require('passport');
+const LocalStrategy = require('passport-local');
+const User = require('./models/user.js');
+
+
+//Import models and utilities
+const Listing = require('./models/listing.js');
+const path = require('path');
+const wrapAsync = require('./utils/wrapAsync.js');
+
+//Session configuration
+const session = require('express-session');
+const sessionOptions = {
+    secret: "thisshould",
+    resave: false,
+    saveUninitialized: true,
+    cookie: {
+        expires: Date.now() + 7 * 24 * 60 * 60 * 1000, // 1 week
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        httpOnly: true,
+    }
+};
+
 
 //Needed to read form data
 app.use(expres.urlencoded({ extended: true }));
@@ -22,126 +43,60 @@ app.engine('ejs', ejsMate);
 app.use(expres.static(path.join(__dirname, 'public')));
 app.use('/logo', expres.static(path.join(__dirname, 'logo')));
 
+//View engine setup
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+
 
 //Method Override setup
 app.use(methodOverride('_method'));
 
-
+//Server configuration
 const port = process.env.PORT || 8080;
 // const MONGO_URL = 'mongodb://127.0.0.1:27017/aircnc';
-
+//MongoDB connection
 async function main() {
     await mongoose.connect(process.env.MONGODB_URI);
 }
 
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
+//Flash middleware setup
+app.use(session(sessionOptions));
+app.use(flash());
 
-const validateListing = (req, res, next) => {
-    let {error} = listingSchema.validate(req.body);
-    if(error) {
-        let errMsg = error.details.map(el => el.message).join(',');
-        throw new ExpressError(400, errMsg);
-    } else {
-        next();
-    }
-};
+app.use((req, res, next) => {
+    res.locals.success = req.flash('success');
+    res.locals.error = req.flash('error');
+    next();
+});
 
-const validateReview = (req, res, next) => {
-    let {error} = reviewSchema.validate(req.body);
-    if(error) {
-        let errMsg = error.details.map(el => el.message).join(',');
-        throw new ExpressError(400, errMsg);
-    } else {
-        next();
-    }
-};
+//Passport middleware setup
+app.use(passport.initialize());
+app.use(passport.session());
+passport.use(new LocalStrategy(User.authenticate()));
+
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(User.deserializeUser());
 
 
-// Home route
+// Home Route
 app.get('/', wrapAsync(async (req, res) => {
     const heroListings = await Listing.find({}).limit(5);
     res.render("listings/main.ejs", {heroListings});
 }));
 
+//Listings Routes
+const listings = require('./routes/listing.js');
+app.use('/listings', listings);
 
-//Index route
-app.get ('/listings', wrapAsync(async (req, res) => {
-    const allListings = await Listing.find({});
-    res.render('./listings/index.ejs' , {allListings});
-}));
+//Reviews Routes
+const reviews = require('./routes/review.js');
+app.use('/listings/:id/reviews', reviews);
 
+//User Routes
+const users = require('./routes/user.js');
+app.use('/', users);
 
-//New route
-app.get('/listings/new', (req, res) => {
-    res.render('./listings/new.ejs');
-});
-
-
-//Show route
-app.get('/listings/:id', wrapAsync(async (req, res) => {
-    let {id} = req.params;
-    const listing = await Listing.findById(id).populate('reviews');
-    res.render('./listings/show.ejs', {listing});
-}));
-
-
-//Create route
-app.post('/listings', validateListing, wrapAsync(async (req, res) => {
-    const newListing = new Listing(req.body.listing);
-    await newListing.save();
-    res.redirect("/listings");
-}));
-
-
-//Edit route 
-app.get('/listings/:id/edit', validateListing, wrapAsync(async (req, res) => {
-    let {id} = req.params;
-    const listing = await Listing.findById(id);
-    res.render('./listings/edit.ejs', {listing});
-}));
-
-
-//Update route
-app.put('/listings/:id', wrapAsync(async (req, res) => {
-    let {id} = req.params;
-    const listing = await Listing.findByIdAndUpdate(id, {...req.body.listing});
-    res.redirect(`/listings/${listing._id}`);
-}));
-
-
-//Delete route 
-app.delete('/listings/:id', wrapAsync(async (req, res) => {
-    let {id} = req.params;
-    await Listing.findByIdAndDelete(id);
-    res.redirect('/listings');
-}));
-
-
-//Reviews
-//Post review route
-app.post("/listings/:id/reviews", validateReview, wrapAsync(async (req, res) => {
-    let listing = await Listing.findById(req.params.id);
-    let newReview = new Review(req.body.review);
-
-    listing.reviews.push(newReview);
-    
-    await newReview.save();
-    await listing.save();
-
-    res.redirect(`/listings/${listing._id}`);
-}));
-
-//Delete review route
-app.delete("/listings/:id/reviews/:reviewId", wrapAsync(async (req, res) => {
-    let {id , reviewId} =  req.params;
-    await Review.findById(reviewId);
-    Listing.findByIdAndUpdate(id , {$pull: {reviews: reviewId}});
-    await Review.findByIdAndDelete(reviewId);
-    res.redirect(`/listings/${id}`);
-}));
-
-
+//Test route to create a sample listing
 // app.get("/testListing" , async (req, res) => {
 //     let sampleListing = new Listing({
 //         title: 'my new villa',
