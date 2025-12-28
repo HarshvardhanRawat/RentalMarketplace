@@ -20,7 +20,12 @@
                 <p class="label">Hosted in</p>
                 <p class="value"><%= listing.location %>, <%= listing.country %></p>
             </div>
-            <br>
+            <div>
+                <p class="label">Owner</p>
+                <p class="value">
+                    <%= listing.owner.username %>
+                </p>
+            </div>
             <div>
                 <p class="label">Rating</p>
                 <p class="value">
@@ -37,12 +42,15 @@
                     <% } %>
             </div>
         </div>
+        <% if(currentUser && currentUser._id.equals(listing.owner._id)) { %>
+            <p class="owner-badge">You are the owner of this listing</p>
         <div class="form-actions">
             <a href="/listings/<%=listing._id%>/edit" class="btn btn-dark btn-lg">Edit listing</a>
             <form method="POST" action="/listings/<%=listing._id%>?_method=DELETE">
                 <button class="btn btn-outline-dark btn-lg">Delete listing</button>
             </form>
         </div>
+        <% } %>
     </div>
 </section>
 <section class="review-section">
