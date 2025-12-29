@@ -54,6 +54,8 @@
     </div>
 </section>
 <section class="review-section">
+    <% if (currentUser){ %>
+    <h2 class="section-title">Reviews</h2>
     <div class="review-form-panel">
         <h3 class="review-section-title">Leave a Review</h3>
         <form action="/listings/<%= listing._id %>/reviews" method="POST" novalidate class="review-form">
@@ -78,6 +80,7 @@
             <button type="submit" class="btn btn-dark btn-lg">Submit Review</button>
         </form>
     </div>
+    <% } %>
 
     <div class="reviews-list">
         <h3 class="review-section-title">Reviews</h3>
